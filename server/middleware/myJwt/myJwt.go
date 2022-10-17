@@ -1,4 +1,4 @@
-package myjwt
+package myJwt
 
 import (
 	"crypto/rsa"
@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/dgrijalva/jwt-go"
+	"github.com/pmohanj/golang-csrf-project/db"
 	"github.com/pmohanj/golang-csrf-project/db/models"
 )
 
@@ -42,10 +43,11 @@ func InitJWT() error {
 	return nil
 }
 
-func CreateNewToken(uuid, role string) (authTokenString, refreshTokenString, csrfToken string, err error) {
+// This is called naked return values like we can name the return values which will be returned by the func
+func CreateNewToken(uuid, role string) (authTokenString, refreshTokenString, csrfSecret string, err error) {
 
 	// Generating csrf secret
-	csrfSecret, err := models.GenerateCSRFSecret()
+	csrfSecret, err = models.GenerateCSRFSecret()
 	if err != nil {
 		return
 	}

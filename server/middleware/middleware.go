@@ -3,9 +3,12 @@ package middleware
 import (
 	"log"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/justinas/alice"
+	"github.com/pmohanj/golang-csrf-project/db"
+	"github.com/pmohanj/golang-csrf-project/server/middleware/myJwt"
 	"github.com/pmohanj/golang-csrf-project/server/templates"
 )
 
@@ -54,10 +57,41 @@ func logicHandler(w http.ResponseWriter, r *http.Request) {
 	case "/register":
 		switch r.Method {
 		case "GET":
+			templates.RenderTemplate(w, "login", &templates.LoginPage{false, ""})
 		case "POST":
+			r.ParseForm()
+			log.Println(r.Form)
+
+			// check to see if usernmae already exists or username is already taken
+			_, uuid, err := db.FetchUserByUsername(strings.Join(r.Form["username"], ""))
+			if err == nil {
+				w.WriteHeader(http.StatusUnauthorized)
+			} else {
+				// create acc for this user
+				role := "user"
+				uuid, err := db.StoreUser(strings.Join(r.Form["username"], ""), strings.Join(r.Form["password"], ""), role)
+				if err != nil {
+					http.Error(w, http.StatusText(500), 500)
+				}
+				log.Println("uuid: ", uuid)
+
+				authTokenString, refreshTokenString, csrfSecret, err := myJwt.CreateNewToken(uuid, role)
+				if err != nil {
+					http.Error(w, http.StatusText(500), 500)
+				}
+
+				setAuthAndRefreshCookies(w, authTokenString, refreshTokenString)
+				w.Header().Set("X-CSRF-Token", csrfSecret)
+				w.WriteHeader(http.StatusOK)
+			}
 		default:
+			// remove this user's ability to make requests
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			// use 302 to force browser to make GET request
+			http.Redirect(w, r, "/login", 302)
 		}
 	case "/logout":
+		nullifyTokenCookies(w, r)
 	case "/deleteUser":
 	default:
 	}
@@ -80,6 +114,7 @@ func nullifyTokenCookies(w http.ResponseWriter, r *http.Request) {
 	}
 	http.SetCookie(w, &refreshCookie)
 
+	// if present, revoke the refresh cookie from our db
 	RefreshToken, refreshErr := r.Cookie("RefreshToken")
 	if refreshErr == http.ErrNoCookie {
 		return
@@ -87,6 +122,7 @@ func nullifyTokenCookies(w http.ResponseWriter, r *http.Request) {
 		log.Panic("Panic: %+V", refreshErr)
 		http.Error(w, http.StatusText(500), 500)
 	}
+
 	myJwt.RevokeRefreshToken(RefreshToken.Value)
 }
 
