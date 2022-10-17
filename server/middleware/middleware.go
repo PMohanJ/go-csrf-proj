@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/justinas/alice"
+	"github.com/pmohanj/golang-csrf-project/server/templates"
 )
 
 func NewHandler() http.Handler {
@@ -41,6 +42,8 @@ func authHandler(next http.Handler) http.Handler {
 func logicHandler(w http.ResponseWriter, r *http.Request) {
 	switch r.URL.Path {
 	case "/restricted":
+		csrfSecret := grabCsrfFromReq(r)
+		templates.RenderTemplate(w, "restricted", &templates.RestrictedPage{CsrfSecret: csrfSecret, SecretMessage: "Hello Bro"})
 
 	case "/login":
 		switch r.Method {
