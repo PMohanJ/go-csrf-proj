@@ -67,8 +67,8 @@ func CreateNewToken(uuid, role string) (authTokenString, refreshTokenString, csr
 	return
 }
 
-func CkeckAndRefreshTokens() {
-
+func CheckAndRefreshTokens(authToken, refreshToken, csrfToken string) (authTokenString, refreshTokenString, csrfSecret string, err error) {
+	return
 }
 
 func createAuthTokenString(uuid, role, csrfSecret string) (string, error) {
