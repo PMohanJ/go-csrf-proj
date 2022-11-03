@@ -41,7 +41,8 @@ func StoreUser(username, password, role string) (uuid string, err error) {
 	users[uuid] = models.User{
 		Username:     username,
 		PasswordHash: passwordHash,
-		Role:         role}
+		Role:         role,
+	}
 
 	return uuid, err
 }

@@ -251,12 +251,48 @@ func updateAuthTokenString(refreshTokenString, oldAuthTokenString string) (newAu
 	}
 }
 
-func RevokeRefreshToken(value string) {
+func RevokeRefreshToken(refreshTokenString string) error {
+	refreshToken, err := jwt.ParseWithClaims(refreshTokenString, &models.TokenClaims{}, func(token *jwt.Token) (interface{}, error) {
+		return verifyKey, nil
+	})
+	if err != nil {
+		return errors.New("Could not parse refresh token with claims")
+	}
 
+	refreshTokenClaims, ok := refreshToken.Claims.(*models.TokenClaims)
+	if !ok {
+		return errors.New("Could not read refresh token claims")
+	}
+
+	db.DeleteRefreshToken(refreshTokenClaims.StandardClaims.Id)
+
+	return nil
 }
 
-func updateRefreshTokenCsrf() {
+func updateRefreshTokenCsrf(oldRefreshTokenString string, newCsrfString string) (newRefreshTokenString string, err error) {
+	refreshToken, err := jwt.ParseWithClaims(oldRefreshTokenString, &models.TokenClaims{}, func(token *jwt.Token) (interface{}, error) {
+		return verifyKey, nil
+	})
 
+	oldRefreshTokenClaims, ok := refreshToken.Claims.(*models.TokenClaims)
+	if !ok {
+		return
+	}
+
+	refreshClaims := models.TokenClaims{
+		jwt.StandardClaims{
+			Id:        oldRefreshTokenClaims.StandardClaims.Id,
+			Subject:   oldRefreshTokenClaims.StandardClaims.Subject,
+			ExpiresAt: oldRefreshTokenClaims.StandardClaims.ExpiresAt,
+		},
+		oldRefreshTokenClaims.Role,
+		newCsrfString,
+	}
+
+	refreshJwt := jwt.NewWithClaims(jwt.GetSigningMethod("RS256"), refreshClaims)
+	newRefreshTokenString, err = refreshJwt.SignedString(signKey)
+
+	return
 }
 
 func GrabUUID(authTokenString string) (string, error) {
